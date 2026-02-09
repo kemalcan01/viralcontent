@@ -12,33 +12,31 @@
         .gold-text { color: #d4af37; }
         .gold-bg { background: linear-gradient(135deg, #d4af37 0%, #f9e29c 100%); }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .loader { border: 3px solid #1a1a1a; border-top: 3px solid #d4af37; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+        .loader { border: 3px solid #1a1a1a; border-top: 3px solid #d4af37; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-6">
 
     <div class="max-w-4xl mx-auto space-y-8">
         <header class="text-center">
             <h1 class="text-3xl font-bold tracking-tighter">rec709pro <span class="gold-text">VIRAL FACTORY</span></h1>
-            <p class="text-xs text-slate-500 mt-2 uppercase tracking-widest text-center">Dubai AI Analysis Engine</p>
         </header>
 
         <div class="glass p-6 rounded-2xl space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" id="sector" placeholder="Sektör (Örn: Lüks Emlak)" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-amber-500">
-                <input type="text" id="topic" placeholder="Konu (Örn: Dubai'de Yaşam)" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-amber-500">
+                <input type="text" id="sector" placeholder="Sektör" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="text" id="topic" placeholder="Konu" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
             </div>
-            <button onclick="generate()" id="btn" class="w-full gold-bg text-black font-bold p-4 rounded-xl hover:opacity-90 transition shadow-lg shadow-amber-500/10">FİKİRLERİ OLUŞTUR</button>
+            <button onclick="generate()" id="btn" class="w-full gold-bg text-black font-bold p-4 rounded-xl active:scale-95 transition">FİKİRLERİ OLUŞTUR</button>
         </div>
 
-        <div id="loading" class="hidden text-center p-10">
-            <div class="loader"></div>
-            <span class="text-sm gold-text animate-pulse font-bold">ALGORİTMA HESAPLIYOR...</span>
+        <div id="loading" class="hidden text-center gold-text font-bold animate-pulse">
+            <div class="loader mr-2"></div> ALGORİTMA ÇALIŞIYOR...
         </div>
 
         <div id="results" class="hidden space-y-6">
-            <div class="glass p-6 rounded-2xl h-64"><canvas id="chart"></canvas></div>
+            <div class="glass p-4 rounded-2xl h-64"><canvas id="chart"></canvas></div>
             <div id="grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </div>
     </div>
@@ -53,37 +51,44 @@
             const load = document.getElementById('loading');
             const res = document.getElementById('results');
 
-            if(!s || !t) return alert("Alanları doldur Kemal Can.");
+            if(!s || !t) return alert("Boş bırakma Kemal Can.");
 
             btn.disabled = true;
             load.classList.remove('hidden');
             res.classList.add('hidden');
 
-            // En garanti model ismi ve endpoint
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // URL DEĞİŞTİ: v1 sürümünü kullanarak daha stabil hale getirildi
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Sen bir viral stratejistsin. Sektör: ${s}, Konu: ${t}. Sadece JSON formatında, şu şemayla 10 fikir üret: {"ideas": [{"title": "...", "score": 90, "hook": "...", "type": "Reels"}]}` }] }],
-                        generationConfig: { responseMimeType: "application/json", temperature: 1 }
+                        contents: [{ 
+                            parts: [{ 
+                                text: `Sektör: ${s}, Konu: ${t}. Bir viral stratejistsin. Bu konuda 10 tane viral içerik fikri üret. Yanıtın sadece şu yapıda JSON olsun: {"ideas": [{"title": "Başlık", "score": 95, "hook": "Kanca cümlesi", "type": "Reels"}]}` 
+                            }] 
+                        }]
                     })
                 });
 
                 const data = await response.json();
                 
-                if (!response.ok) throw new Error(data.error.message);
+                if (!response.ok) {
+                    throw new Error(data.error?.message || "Bilinmeyen Hata");
+                }
 
-                const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
-                display(parsed);
+                const rawText = data.candidates[0].content.parts[0].text;
+                // Markdown ```json ... ``` bloklarını temizleyen güvenli regex
+                const cleanJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+                const parsed = JSON.parse(cleanJson);
                 
-                load.classList.add('hidden');
+                display(parsed);
                 res.classList.remove('hidden');
             } catch (err) {
                 console.error(err);
-                alert("Hata: " + err.message);
+                alert("Sorun Çıktı: " + err.message);
             } finally {
                 btn.disabled = false;
                 load.classList.add('hidden');
@@ -100,10 +105,12 @@
                 labels.push(i.title.substring(0, 10));
                 scores.push(i.score);
                 const card = document.createElement('div');
-                card.className = 'glass p-5 rounded-2xl border-l-4 border-amber-500 hover:scale-[1.02] transition-transform';
+                card.className = 'glass p-5 rounded-2xl border-l-4 border-amber-500';
                 card.innerHTML = `
-                    <div class="flex justify-between text-[10px] mb-2 font-bold uppercase text-slate-500"><span>${i.type}</span><span class="gold-text">${i.score}</span></div>
-                    <h3 class="font-bold text-sm mb-2">${i.title}</h3>
+                    <div class="flex justify-between text-[10px] mb-2 font-bold uppercase text-slate-500">
+                        <span>${i.type}</span><span class="gold-text">${i.score}</span>
+                    </div>
+                    <h3 class="font-bold text-sm mb-1">${i.title}</h3>
                     <p class="text-xs text-slate-400 italic">"${i.hook}"</p>
                 `;
                 grid.appendChild(card);
@@ -117,8 +124,13 @@
             if(chart) chart.destroy();
             chart = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: l, datasets: [{ data: s, backgroundColor: '#d4af37', borderRadius: 4 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#444' } }, x: { ticks: { color: '#666', font: { size: 9 } } } } }
+                data: { labels: l, datasets: [{ data: s, backgroundColor: '#d4af37', borderRadius: 5 }] },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, max: 100 }, x: { ticks: { color: '#555', font: { size: 9 } } } }
+                }
             });
         }
     </script>

@@ -9,11 +9,9 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap');
         body { font-family: 'Space Grotesk', sans-serif; background-color: #0a0a0a; color: #f5f5f5; }
-        .gold-border { border: 1px solid rgba(212, 175, 55, 0.3); }
         .gold-text { color: #d4af37; }
         .gold-bg { background: linear-gradient(135deg, #d4af37 0%, #f9e29c 100%); }
         .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .idea-card:hover { transform: translateY(-5px); border-color: rgba(212, 175, 55, 0.6); }
         .loading-shimmer { background: linear-gradient(90deg, #111, #222, #111); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     </style>
@@ -23,135 +21,80 @@
     <header class="p-6 border-b border-white/5 sticky top-0 bg-black/80 backdrop-blur-md z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold tracking-tighter">rec709pro <span class="gold-text">VIRAL FACTORY</span></h1>
-            <div class="flex gap-4">
-                <div class="text-[10px] text-slate-500 uppercase tracking-widest text-right">
-                    Pazar: Dubai / Küresel<br>Analiz: Real-Time AI
-                </div>
-            </div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-widest text-right">DUBAI / AI ENGINE</div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto p-6 space-y-12">
         <section class="glass-card p-8 rounded-3xl space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Sektör / Niş</label>
-                    <input type="text" id="sector-input" placeholder="Örn: Dubai Emlak, Lüks Araç..." 
-                           class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hedef Konu</label>
-                    <input type="text" id="topic-input" placeholder="Örn: Yatırım getirileri..." 
-                           class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
+                <input type="text" id="sector-input" placeholder="Sektör (Örn: Dubai Emlak)" class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none">
+                <input type="text" id="topic-input" placeholder="Konu (Örn: Vergisiz Yatırım)" class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none">
             </div>
-            <button onclick="generateViralIdeas()" id="main-btn" class="w-full gold-bg text-black font-extrabold p-4 rounded-xl hover:opacity-90 transition active:scale-95">
-                VİRAL FİKİR MATRİSİNİ OLUŞTUR (10 FİKİR)
-            </button>
+            <button onclick="generateViralIdeas()" id="main-btn" class="w-full gold-bg text-black font-extrabold p-4 rounded-xl active:scale-95 transition-all">ANALİZİ BAŞLAT</button>
         </section>
+
+        <div id="loader" class="hidden"><div class="loading-shimmer h-40 rounded-3xl"></div></div>
 
         <div id="results-container" class="hidden space-y-12">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-2 glass-card p-6 rounded-3xl">
-                    <h3 class="font-bold mb-4 text-slate-300">İçeriklerin Viral Potansiyel Dağılımı</h3>
-                    <div class="h-64">
-                        <canvas id="scoreChart"></canvas>
-                    </div>
-                </div>
-                <div class="lg:col-span-1 flex flex-col justify-center space-y-4">
-                    <div class="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl">
-                        <p class="text-xs text-amber-500 font-bold uppercase">Stratejik Tavsiye</p>
-                        <p id="ai-strategic-note" class="text-sm mt-2 text-slate-300 italic leading-relaxed"></p>
-                    </div>
+                <div class="lg:col-span-2 glass-card p-6 rounded-3xl h-64"><canvas id="scoreChart"></canvas></div>
+                <div class="lg:col-span-1 bg-amber-500/10 p-6 rounded-2xl border border-amber-500/20">
+                    <p id="ai-strategic-note" class="text-sm text-slate-300 italic"></p>
                 </div>
             </div>
             <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </div>
-
-        <div id="loader" class="hidden space-y-6">
-            <div class="loading-shimmer h-40 rounded-3xl"></div>
-            <div class="grid grid-cols-2 gap-6">
-                <div class="loading-shimmer h-60 rounded-3xl"></div>
-                <div class="loading-shimmer h-60 rounded-3xl"></div>
-            </div>
-        </div>
     </main>
 
     <script>
-        // Senin sağladığın API Key başarıyla yerleştirildi.
-        const apiKey = "AIzaSyD1uthSuA1ivrZg5idcDBdP7qX3AI63KO0"; 
-
-        async function callGemini(prompt, systemInstruction) {
-            // URL ve Model stabilite için güncellendi
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                generationConfig: { 
-                    responseMimeType: "application/json",
-                    temperature: 0.7 
-                }
-            };
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error.message || "API Hatası");
-            }
-
-            const data = await response.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text;
-        }
+        const apiKey = "AIzaSyD1uthSuA1ivrZg5idcDBdP7qX3AI63KO0";
 
         async function generateViralIdeas() {
             const sector = document.getElementById('sector-input').value;
             const topic = document.getElementById('topic-input').value;
-            if(!sector || !topic) return alert("Lütfen alanları doldurun.");
-
-            const loader = document.getElementById('loader');
-            const results = document.getElementById('results-container');
             const btn = document.getElementById('main-btn');
             
-            loader.classList.remove('hidden');
-            results.classList.add('hidden');
-            btn.disabled = true;
-            btn.innerText = "ALGORİTMA HESAPLIYOR...";
+            if(!sector || !topic) return alert("Alanları doldurun.");
 
-            const systemPrompt = `Sen bir Viral İçerik Stratejistisin. rec709pro markası için Dubai pazarında yüksek etkileşim alacak içerikler üretiyorsun. 
-            Verilen sektör ve konu için tam 10 adet benzersiz içerik fikri üret. Yanıtın SADECE JSON olmalı.
-            {
-                "strategic_note": "Genel pazar tavsiyesi",
-                "ideas": [
-                    {
-                        "title": "İçerik Başlığı",
-                        "viral_score": 85,
-                        "difficulty": "Kolay",
-                        "hook": "Kanca cümlesi",
-                        "flow": ["Adım 1", "Adım 2", "Adım 3"],
-                        "viral_logic": "Neden viral olacağı",
-                        "type": "Reels"
-                    }
-                ]
-            }`;
+            btn.disabled = true;
+            btn.innerText = "Yapay Zeka Çalışıyor...";
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+
+            // API URL güncellendi: v1beta yerine v1 ve model ismi güncellendi
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            const systemPrompt = "Sen Dubai merkezli bir viral içerik stratejistisin. Cevabını SADECE JSON formatında ver. JSON şeması: { \"strategic_note\": \"...\", \"ideas\": [ { \"title\": \"...\", \"viral_score\": 90, \"hook\": \"...\", \"type\": \"Reels\" } ] }";
 
             try {
-                const raw = await callGemini(`Sektör: ${sector}, Konu: ${topic}`, systemPrompt);
-                const data = JSON.parse(raw);
-                renderResults(data);
-                loader.classList.add('hidden');
-                results.classList.remove('hidden');
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Sektör: ${sector}, Konu: ${topic}. Sistem Talimatı: ${systemPrompt}` }] }]
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorJson = await response.json();
+                    throw new Error(errorJson.error.message);
+                }
+
+                const data = await response.json();
+                const contentText = data.candidates[0].content.parts[0].text;
+                const cleanJson = contentText.replace(/```json/g, "").replace(/```/g, "").trim();
+                const parsedData = JSON.parse(cleanJson);
+
+                renderResults(parsedData);
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('results-container').classList.remove('hidden');
             } catch (err) {
+                alert("Hata: " + err.message);
                 console.error(err);
-                alert("Hata oluştu: " + err.message);
             } finally {
                 btn.disabled = false;
-                btn.innerText = "VİRAL FİKİR MATRİSİNİ OLUŞTUR (10 FİKİR)";
+                btn.innerText = "ANALİZİ BAŞLAT";
             }
         }
 
@@ -162,31 +105,16 @@
             const labels = [];
             const scores = [];
 
-            data.ideas.forEach((idea) => {
-                labels.push(idea.title.substring(0, 15) + '...');
+            data.ideas.forEach(idea => {
+                labels.push(idea.title.substring(0, 10));
                 scores.push(idea.viral_score);
                 const card = document.createElement('div');
-                card.className = 'glass-card p-6 rounded-3xl idea-card border-l-4 transition-all duration-300';
-                card.style.borderLeftColor = idea.viral_score > 90 ? '#d4af37' : '#444';
+                card.className = 'glass-card p-6 rounded-3xl border-l-4 border-amber-500';
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${idea.type}</span>
-                        <div class="text-right">
-                            <span class="text-2xl font-black ${idea.viral_score > 90 ? 'gold-text' : 'text-white'}">${idea.viral_score}</span>
-                            <p class="text-[8px] uppercase text-slate-500">Skor</p>
-                        </div>
-                    </div>
-                    <h4 class="text-lg font-bold mb-3">${idea.title}</h4>
-                    <div class="space-y-4">
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/5">
-                            <p class="text-[10px] font-bold text-amber-500 uppercase">🪝 Kanca</p>
-                            <p class="text-sm italic">"${idea.hook}"</p>
-                        </div>
-                        <div class="text-xs text-slate-400">
-                            <ul class="list-disc list-inside">${idea.flow.map(f => `<li>${f}</li>`).join('')}</ul>
-                        </div>
-                        <p class="text-[11px] text-slate-500 border-t border-white/5 pt-2">${idea.viral_logic}</p>
-                    </div>`;
+                    <div class="flex justify-between mb-2"><span class="text-[10px] text-slate-500 uppercase">${idea.type}</span><span class="gold-text font-bold">${idea.viral_score}</span></div>
+                    <h4 class="font-bold text-sm mb-2">${idea.title}</h4>
+                    <p class="text-xs italic text-slate-400">"${idea.hook}"</p>
+                `;
                 grid.appendChild(card);
             });
             updateChart(labels, scores);
@@ -198,21 +126,8 @@
             if(myChart) myChart.destroy();
             myChart = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Viral Skor',
-                        data: scores,
-                        backgroundColor: '#d4af37',
-                        borderRadius: 5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, max: 100 }, x: { ticks: { color: '#666', font: { size: 8 } } } },
-                    plugins: { legend: { display: false } }
-                }
+                data: { labels: labels, datasets: [{ data: scores, backgroundColor: '#d4af37' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
     </script>
